@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phoenix Arcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #121218;
+            --accent-primary: #00ffcc;
+            --accent-secondary: #ffd700;
+            --accent-hot: #ff0055;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Fredoka', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            touch-action: none;
+            user-select: none;
+            background-image: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000000 100%);
+        }
+
+        /* Animated Background Shapes */
+        .bg-shape {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(45deg, var(--accent-primary), transparent);
+            opacity: 0.1;
+            animation: float 10s infinite linear;
+            z-index: 0;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            100% { transform: translate(200px, -200px) rotate(360deg); }
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 4/3;
+            border-radius: 20px;
+            border: 4px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            background: #000;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Layer */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            text-align: center;
+            z-index: 20;
+        }
+
+        .hidden { display: none !important; }
+        
+        /* Splash Screen */
+        #splash-screen {
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 100; position: absolute; top: 0; left: 0;
+        }
+        
+        .title-anim {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 2.5rem;
+            background: linear-gradient(to right, #ff00cc, #333399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: bounce 2s infinite;
+            margin-bottom: 20px;
+            text-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+        /* Modern Buttons (Sticker Style) */
+        .btn {
+            pointer-events: auto;
+            background: var(--glass-bg);
+            border: 2px solid var(--glass-border);
+            color: #fff;
+            padding: 15px 25px;
+            margin: 10px;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .btn:hover { transform: translateY(-3px) scale(1.02); border-color: var(--accent-primary); background: rgba(0, 255, 204, 0.2); }
+        .btn:active { transform: translateY(2px); }
+        
+        .btn-start {
+            font-size: 1.5rem;
+            background: linear-gradient(45deg, #ff0055, #ffcc00);
+            border: none;
+            color: white;
+            padding: 20px 40px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 0, 85, 0.4); } 70% { box-shadow: 0 0 0 20px rgba(255, 0, 85, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 0, 85, 0); } }
+
+        /* Pause Button */
+        #btn-pause {
+            position: absolute; top: 15px; right: 15px;
+            width: 45px; height: 45px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; pointer-events: auto; z-index: 50;
+            font-size: 1.2rem;
+            transition: background 0.2s;
+        }
+        #btn-pause:hover { background: rgba(255,255,255,0.4); }
+
+        /* Overlays */
+        #pause-overlay, #tutorial-modal {
+            background: rgba(18, 18, 24, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            pointer-events: auto;
+            box-shadow: 0 0 50px rgba(0,255,204,0.2);
+            z-index: 60;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* Profile Bar */
+        #profile-bar {
+            position: absolute; top: 15px; left: 15px;
+            display: flex; align-items: center; gap: 12px;
+            pointer-events: auto; cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 16px; border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 30;
+            transition: transform 0.2s;
+        }
+        #profile-bar:hover { transform: scale(1.05); background: rgba(0,0,0,0.7); }
+        #profile-avatar-mini { width: 45px; height: 45px; border-radius: 50%; border: 2px solid #fff; object-fit: cover; background: #fff; }
+        .profile-title { font-size: 0.7rem; color: var(--accent-primary); font-weight: bold; letter-spacing: 1px; }
+
+        /* Virtual Controls */
+        #virtual-controls { position: absolute; bottom: 30px; width: 100%; height: 80px; display: flex; justify-content: space-between; padding: 0 40px; box-sizing: border-box; pointer-events: auto; z-index: 30; }
+        .v-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; backdrop-filter: blur(5px); transition: transform 0.1s; }
+        .v-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.4); }
+
+        /* Profile Modal */
+        #profile-modal {
+            background: #1a1a1a;
+            border-radius: 25px;
+            padding: 30px;
+            width: 90%; max-width: 400px;
+            z-index: 70;
+            pointer-events: auto;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            border: 1px solid #333;
+        }
+        .avatar-grid { display: flex; justify-content: center; gap: 15px; margin: 20px 0; flex-wrap: wrap; }
+        .avatar-option { width: 60px; height: 60px; border-radius: 50%; cursor: pointer; object-fit: cover; background: #333; border: 3px solid transparent; transition: all 0.2s; }
+        .avatar-option:hover, .avatar-option.selected { border-color: var(--accent-primary); transform: scale(1.1); }
+        input[type="text"] { background: #222; border: none; color: white; padding: 12px; border-radius: 10px; width: 100%; text-align: center; font-family: 'Fredoka', sans-serif; font-size: 1.1rem; margin-top: 10px; }
+        input[type="text"]:focus { outline: 2px solid var(--accent-primary); }
+
+        /* HUD */
+        #hud { width: 90%; display: flex; justify-content: space-between; pointer-events: none; font-family: 'Press Start 2P', cursive; text-shadow: 2px 2px 0 #000; }
+        #hud-lives { color: #ff4d4d; font-size: 1.5rem; }
+        
+        .game-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 10px;
+            margin: 5px;
+            display: inline-block;
+            width: 45%;
+            vertical-align: top;
+            transition: transform 0.2s;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        .game-card:hover { transform: translateY(-5px); background: rgba(255,255,255,0.1); }
+        .game-title { font-family: 'Press Start 2P', cursive; font-size: 0.7rem; margin-bottom: 5px; color: var(--accent-secondary); }
+
+    </style>
+</head>
+<body>
+
+    <!-- Animated Background -->
+    <div class="bg-shape" style="width: 100px; height: 100px; top: 20%; left: 10%;"></div>
+    <div class="bg-shape" style="width: 150px; height: 150px; bottom: 30%; right: 15%; animation-delay: -5s; background: linear-gradient(45deg, var(--accent-hot), transparent);"></div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div id="ui-layer">
+            
+            <!-- Splash Screen -->
+            <div id="splash-screen">
+                <h1 class="title-anim">PHOENIX ARCADE</h1>
+                <p style="color:#eee; font-size:0.9rem; margin-bottom: 30px; opacity: 0.7;">Tap to Start • Sound On</p>
+                <button class="btn btn-start" onclick="app.init()">PLAY NOW</button>
+            </div>
+
+            <!-- Profile Bar -->
+            <div id="profile-bar" class="hidden" onclick="profile.open()">
+                <img id="profile-avatar-mini" src="" alt="Avatar">
+                <div id="profile-info-mini">
+                    <div id="p-name" style="font-weight:bold;">PLAYER</div>
+                    <div id="p-title" class="profile-title">ROOKIE</div>
+                </div>
+                <div style="color:var(--accent-secondary); font-weight:bold; margin-left:5px;">🪙 <span id="p-coins">0</span></div>
+            </div>
+
+            <!-- Pause Button -->
+            <div id="btn-pause" class="hidden" onclick="game.togglePause()">⏸</div>
+
+            <!-- Main Menu -->
+            <div id="main-menu" class="hidden" style="width:100%; padding-top: 60px;">
+                <h2 style="margin-bottom:20px; font-family: 'Press Start 2P'; color: #fff;">SELECT GAME</h2>
+                
+                <div style="overflow-y: auto; height: 400px; padding-bottom: 20px; pointer-events: auto;">
+                    <div class="game-card" onclick="game.prep('roast')">
+                        <div style="font-size: 2rem; margin-bottom:10px;">🌶</div>
+                        <div class="game-title">ROAST</div>
+                        <div style="font-size:0.7rem; color:#aaa;">HS: <span id="hs-roast">0</span></div>
+                    </div>
+                    <div class="game-card" onclick="game.prep('time')">
+                        <div style="font-size: 2rem; margin-bottom:10px;">⏰</div>
+                        <div class="game-title">TIME</div>
+                        <div style="font-size:0.7rem; color:#aaa;">HS: <span id="hs-time">0</span></div>
+                    </div>
+                    <div class="game-card" onclick="game.prep('connect')">
+                        <div style="font-size: 2rem; margin-bottom:10px;">🕸</div>
+                        <div class="game-title">NEON GRAPPLE</div>
+                        <div style="font-size:0.7rem; color:#aaa;">HS: <span id="hs-connect">0</span></div>
+                    </div>
+                    <div class="game-card" onclick="game.prep('gravity')">
+                        <div style="font-size: 2rem; margin-bottom:10px;">🛰</div>
+                        <div class="game-title">ORBITAL HOP</div>
+                        <div style="font-size:0.7rem; color:#aaa;">HS: <span id="hs-gravity">0</span></div>
+                    </div>
+                    <div class="game-card" onclick="game.prep('yinyang')">
+                        <div style="font-size: 2rem; margin-bottom:10px;">☯</div>
+                        <div class="game-title">DUALITY</div>
+                        <div style="font-size:0.7rem; color:#aaa;">HS: <span id="hs-yinyang">0</span></div>
+                    </div>
+                    <div class="game-card" id="btn-beast" style="opacity:0.5; cursor:not-allowed;">
+                        <div style="font-size: 2rem; margin-bottom:10px;">👹</div>
+                        <div class="game-title">BEAST MODE</div>
+                        <div style="font-size:0.6rem; color:#ff4d4d;">LOCKED</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tutorial Modal -->
+            <div id="tutorial-modal" class="hidden">
+                <h1 id="tut-icon" style="font-size: 4rem; margin:0;">🎮</h1>
+                <h2 id="tut-title" style="color:var(--accent-primary); margin: 10px 0; font-family: 'Press Start 2P'; font-size: 1.2rem;">GAME TITLE</h2>
+                <p id="tut-desc" style="line-height:1.6; margin-bottom:30px; color: #ddd;">Description.</p>
+                <button class="btn btn-start" style="font-size: 1rem; padding: 15px 30px;" onclick="game.startFromTutorial()">START</button>
+            </div>
+
+            <!-- Pause Overlay -->
+            <div id="pause-overlay" class="hidden">
+                <h1 style="font-family: 'Press Start 2P'; margin-bottom: 30px;">PAUSED</h1>
+                <button class="btn" onclick="game.togglePause()">▶ RESUME</button>
+                <button class="btn" onclick="game.toMenu()">🏠 EXIT</button>
+            </div>
+
+            <!-- Profile Modal -->
+            <div id="profile-modal" class="hidden">
+                <h3>EDIT PROFILE</h3>
+                <div class="avatar-grid">
+                    <img src="" class="avatar-option" onclick="profile.selectAvatar(0)" id="av-0">
+                    <img src="" class="avatar-option" onclick="profile.selectAvatar(1)" id="av-1">
+                    <img src="" class="avatar-option" onclick="profile.selectAvatar(2)" id="av-2">
+                    <img src="" class="avatar-option" onclick="profile.selectAvatar(3)" id="av-3">
+                </div>
+                <!-- Custom Avatar Image Element -->
+                <img id="av-custom" class="avatar-option hidden" onclick="profile.selectCustom()" style="margin-bottom:15px; border: 2px dashed var(--accent-primary);">
+                
+                <label class="btn" style="font-size:0.8rem; padding:10px;">
+                    📂 UPLOAD <input type="file" style="display:none;" accept="image/*" onchange="profile.handleUpload(this)">
+                </label>
+                <input type="text" id="username-input" placeholder="ENTER NAME" maxlength="10">
+                <button class="btn" style="margin-top:20px; border-color: var(--accent-primary);" onclick="profile.save()">SAVE PROFILE</button>
+            </div>
+
+            <!-- Game Over -->
+            <div id="game-over" class="hidden" style="background: rgba(0,0,0,0.9); width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; pointer-events:auto;">
+                <h1 id="go-title" style="font-family: 'Press Start 2P'; color: #ff4d4d; margin-bottom: 20px;">GAME OVER</h1>
+                <div style="font-size: 1.5rem; margin-bottom: 10px;">SCORE: <span id="go-score" style="color:#fff; font-weight:bold;">0</span></div>
+                <div style="margin-bottom: 30px; color: var(--accent-secondary);">+<span id="go-coins">0</span> COINS</div>
+                
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" onclick="game.retry()">🔄 RETRY</button>
+                    <button class="btn" onclick="game.toMenu()">🏠 MENU</button>
+                </div>
+            </div>
+            
+            <!-- HUD -->
+            <div id="hud" class="hidden" style="position:absolute; top:15px; width: 90%;">
+                <div style="width:60px;"></div> <!-- Spacer -->
+                <div style="flex-grow:1; text-align: center;">
+                    <div id="hud-lives">❤❤❤</div>
+                </div>
+                <div style="text-align:right; font-family: 'Press Start 2P'; font-size: 0.8rem;">
+                    <div style="color: var(--accent-secondary); margin-bottom: 5px;">🪙 <span id="hud-coins">0</span></div>
+                    <div style="color: #fff; margin-bottom: 5px;"><span id="hud-score">0</span></div>
+                    <div style="color: var(--accent-secondary);">LVL <span id="hud-level">1</span></div>
+                </div>
+            </div>
+            
+            <div id="level-up-msg" class="level-overlay hidden" style="font-family: 'Press Start 2P'; text-shadow: 4px 4px 0 #000;">LEVEL UP!</div>
+        </div>
+
+        <div id="virtual-controls" class="hidden">
+            <div class="v-btn" id="btn-left">⬅</div>
+            <div class="v-btn" id="btn-action">🔥</div>
+            <div class="v-btn" id="btn-right">➡</div>
+        </div>
+    </div>
+
+<script>
+/**
+ * PHOENIX ARCADE ENGINE
+ * Modernized "Sticker" Aesthetic, Emoji Assets, Robust Sharing
+ */
+
+// --- AUDIO ENGINE ---
+const AudioSys = {
+    ctx: null,
+    init: function() {
+        if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.playTheme();
+        } else if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    },
+    playTone: function(freq, type, duration, vol=0.1, slideTo=null) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        if(slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, this.ctx.currentTime + duration);
+        
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+    },
+    // Sounds
+    catch: function() { this.playTone(600, 'triangle', 0.1, 0.1, 800); },
+    tap: function() { this.playTone(880, 'square', 0.05, 0.1); }, 
+    blip: function() { this.playTone(400, 'sine', 0.1, 0.1, 600); },
+    thrust: function() { this.playTone(100, 'sawtooth', 0.2, 0.1, 50); },
+    swap: function() { this.playTone(300, 'sine', 0.2, 0.1, 600); },
+    coin: function() { 
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        [1500, 2200].forEach((f) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(f, t);
+            gain.gain.setValueAtTime(0.05, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(t + 1.0);
+        });
+    },
+    crash: function() { this.playTone(80, 'sawtooth', 0.4, 0.3, 20); },
+    levelUp: function() {
+        if(!this.ctx) return;
+        [440, 554, 659, 880].forEach((f, i) => setTimeout(() => this.playTone(f, 'square', 0.2, 0.1), i*120));
+    },
+    playTheme: function() {
+        if(!this.ctx) return;
+        // Simple ambient loop
+        const notes = [220, 261, 329, 392];
+        let i = 0;
+        setInterval(() => {
+            if(state.mode === 'menu' && document.visibilityState === 'visible') {
+                this.playTone(notes[i%4], 'sine', 0.5, 0.02);
+                i++;
+            }
+        }, 600);
+    }
+};
+
+// --- ASSETS (EMOJI BASED AVATARS) ---
+function generateEmojiAvatar(emoji, bg) {
+    const c = document.createElement('canvas');
+    c.width=64; c.height=64; const cx=c.getContext('2d');
+    cx.fillStyle = bg; cx.beginPath(); cx.arc(32,32,32,0,Math.PI*2); cx.fill();
+    cx.font = "40px serif"; cx.textAlign = "center"; cx.textBaseline = "middle";
+    cx.fillText(emoji, 32, 36);
+    return c.toDataURL();
+}
+const presets = [
+    generateEmojiAvatar("🤖", "#333"),
+    generateEmojiAvatar("👽", "#004400"),
+    generateEmojiAvatar("🦄", "#440044"),
+    generateEmojiAvatar("🐯", "#442200")
+];
+
+// --- CORE ENGINE ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const STORAGE_KEY = 'phoenix_arcade_v1_data';
+const MAX_LIVES = 3;
+
+const els = {
+    splash: document.getElementById('splash-screen'),
+    menu: document.getElementById('main-menu'),
+    hud: document.getElementById('hud'),
+    gameOver: document.getElementById('game-over'),
+    tutorial: document.getElementById('tutorial-modal'),
+    pause: document.getElementById('pause-overlay'),
+    btnPause: document.getElementById('btn-pause'),
+    profileBar: document.getElementById('profile-bar'),
+    profileModal: document.getElementById('profile-modal'),
+    vControls: document.getElementById('virtual-controls'),
+    btnLeft: document.getElementById('btn-left'),
+    btnRight: document.getElementById('btn-right'),
+    btnAction: document.getElementById('btn-action')
+};
+
+const user = { name:"PILOT", avatar:presets[0], custom:null, coins:0, title:"ROOKIE", hs:{roast:0,time:0,connect:0,gravity:0,yinyang:0,beast:0}, unlocked:true };
+const state = { mode:'splash', active:false, paused:false, score:0, level:1, lives:3, coins:0, entities:[], particles:[], planets:[], player:null, frame:0, nextMode:null, invulnerable:0, lane:1, beastTime:0 };
+const keys = { left:false, right:false, up:false, down:false, act:false };
+
+const app = {
+    init: function() {
+        AudioSys.init();
+        this.loadData();
+        profile.update();
+        els.splash.classList.add('hidden');
+        this.toMenu();
+    },
+    loadData: function() {
+        const d = localStorage.getItem(STORAGE_KEY);
+        if(d) {
+            const p = JSON.parse(d);
+            user.name=p.name||user.name; user.avatar=p.avatar||presets[0]; user.custom=p.custom;
+            user.coins=p.coins||0; user.hs=p.hs||user.hs; user.unlocked=p.unlocked; user.title=p.title||"ROOKIE";
+        }
+        // Ensure beast mode is unlocked by default
+        user.unlocked = true;
+    },
+    saveData: function() { localStorage.setItem(STORAGE_KEY, JSON.stringify(user)); },
+    toMenu: function() {
+        state.mode = 'menu';
+        state.active = false;
+        state.paused = false;
+        els.menu.classList.remove('hidden');
+        els.profileBar.classList.remove('hidden');
+        els.hud.classList.add('hidden');
+        els.btnPause.classList.add('hidden');
+        els.gameOver.classList.add('hidden');
+        els.pause.classList.add('hidden');
+        els.tutorial.classList.add('hidden');
+        els.vControls.classList.add('hidden');
+        profile.update();
+        
+        const btnBeast = document.getElementById('btn-beast');
+        if(user.unlocked) { 
+            btnBeast.style.opacity = "1"; 
+            btnBeast.style.cursor = "pointer";
+            btnBeast.querySelector('.game-title').innerText = "BEAST MODE";
+            btnBeast.onclick = function() { game.prep('beast'); };
+        }
+    }
+};
+
+const game = {
+    prep: function(mode) {
+        state.nextMode = mode;
+        els.menu.classList.add('hidden');
+        els.profileBar.classList.add('hidden');
+        els.tutorial.classList.remove('hidden');
+        
+        const titles = { roast:'ROAST', time:'TIME', connect:'NEURAL LINK', gravity:'ORBITAL HOP', yinyang:'DUALITY DASH', beast:'THE CONVERGENCE' };
+        const descs = {
+            roast: "It's getting hot! 🌶\nCatch the Peppers to score.\nAvoid the Water Drops 💧.",
+            time: "Precision is key ⏰.\nTap SPACE when the hand hits the YELLOW zone.",
+            connect: "SYNC THE SIGNAL 🔮\nHOLD SPACE to Split (avoid middle).\nRELEASE to Merge (avoid sides).",
+            gravity: "LOST IN SPACE 🛰\nTap SPACE to launch from orbit.\nTime it right to catch the next planet 🪐.",
+            yinyang: "HEAVEN OR HELL 👼👿\nTap to FLIP reality. \nAngel (Top) must dodge ⚡.\nDemon (Bottom) must dodge 🔥.",
+            beast: "SURVIVE THE CHAOS 👹\n1. Move freely to dodge Fire 🔥 & Beams.\n2. Tap SPACE to Swap Polarity.\n3. Match your color with Spirits 👻 to score."
+        };
+        
+        document.getElementById('tut-title').innerText = titles[mode];
+        document.getElementById('tut-desc').innerText = descs[mode];
+        
+        if(mode === 'connect' || mode === 'time' || mode === 'gravity' || mode === 'yinyang' || mode === 'beast') {
+             els.btnLeft.classList.add('hidden');
+             els.btnRight.classList.add('hidden');
+             els.btnAction.style.width = '120px'; els.btnAction.style.height='120px';
+        } else {
+             els.btnLeft.classList.remove('hidden');
+             els.btnRight.classList.remove('hidden');
+             els.btnAction.style.width = '80px'; els.btnAction.style.height='80px';
+        }
+    },
+    startFromTutorial: function() {
+        els.tutorial.classList.add('hidden');
+        this.start(state.nextMode);
+    },
+    start: function(mode) {
+        state.mode = mode;
+        state.active = true;
+        state.paused = false;
+        state.score = 0;
+        state.level = 1;
+        state.lives = MAX_LIVES;
+        state.coins = 0;
+        state.frame = 0;
+        state.entities = [];
+        state.particles = [];
+        state.planets = [];
+        state.invulnerable = 0;
+        state.beastTime = 0;
+        
+        // Explicitly hide potential overlays
+        els.gameOver.classList.add('hidden');
+        els.menu.classList.add('hidden');
+        els.tutorial.classList.add('hidden');
+        els.profileBar.classList.add('hidden');
+        
+        els.hud.classList.remove('hidden');
+        els.btnPause.classList.remove('hidden');
+        if('ontouchstart' in window || navigator.maxTouchPoints) els.vControls.classList.remove('hidden');
+        
+        // Wait for next frame to update HUD to ensure DOM is ready
+        requestAnimationFrame(() => {
+            this.updateHUD();
+            this.initEntities(mode);
+            requestAnimationFrame(loop);
+        });
+    },
+    togglePause: function() {
+        if(!state.active) return;
+        state.paused = !state.paused;
+        if(state.paused) {
+            els.pause.classList.remove('hidden');
+            els.btnPause.classList.add('hidden');
+        } else {
+            els.pause.classList.add('hidden');
+            els.btnPause.classList.remove('hidden');
+            requestAnimationFrame(loop);
+        }
+    },
+    toMenu: function() { app.toMenu(); },
+    retry: function() { this.start(state.mode); },
+    
+    initEntities: function(mode) {
+        if(mode==='roast') state.player = {x:400,y:550,w:40,h:40,emoji:'😎'};
+        if(mode==='time') { state.player={angle:0, speed:0.05}; this.resetTime(); }
+        if(mode==='connect') { state.player={ y: 500, separation: 0, maxSep: 60, split: false, color: '#fff'}; }
+        if(mode==='gravity') {
+            state.planets = [
+                {x:400, y:500, r:40, emoji:'🌍', type:'planet'},
+                {x:400, y:300, r:30, emoji:'🪐', type:'planet'},
+                {x:Math.random()*600+100, y:100, r:25, emoji:'🌑', type:'planet'}
+            ];
+            state.player = {
+                state: 'orbit', currentPlanet: state.planets[0], angle: -Math.PI/2, dist: 60, speed: 0.05, dir: 1, x: 0, y: 0, vx: 0, vy: 0, emoji: '🛰'
+            };
+        }
+        if(mode==='yinyang') state.player={x:100,y:250,side:'top'}; 
+        if(mode==='beast') {
+            state.player={
+                x:400, y:500, 
+                vx:0, vy:0,
+                white:true, 
+                emoji:'👹',
+                trail: []
+            };
+            state.beastTime = 0;
+        }
+    },
+    resetTime: function() {
+        const size = Math.max(0.2, 1.0-(state.level*0.05));
+        const start = Math.random()*6;
+        state.player.target = {s:start, e:start+size};
+        state.player.speed = (0.05 + state.level*0.01) * (Math.random()>0.5?1:-1);
+    },
+    hit: function() {
+        if(state.invulnerable>0) return;
+        state.lives--;
+        AudioSys.crash();
+        createExplosion(state.player.x||400, state.player.y||300, '#ff4d4d');
+        if(state.lives<=0) this.over();
+        else {
+            state.invulnerable = 120;
+            if(state.mode==='connect') { state.player.separation=0; }
+            if(state.mode==='gravity') { this.initEntities('gravity'); } 
+        }
+        this.updateHUD();
+    },
+    collect: function(pts) {
+        state.score += pts;
+        app.saveData();
+        const thresh = state.mode==='time'?50:(100+state.level*20);
+        if(state.score % thresh < pts) { 
+             state.level++;
+             AudioSys.levelUp();
+             const msg = document.getElementById('level-up-msg');
+             msg.innerText = "LEVEL " + state.level;
+             msg.classList.remove('hidden');
+             setTimeout(()=>msg.classList.add('hidden'), 2000);
+             if(state.mode==='time') this.resetTime();
+        }
+        this.updateHUD();
+    },
+    over: function() {
+        state.active = false;
+        user.coins += state.coins;
+        if(state.score > user.hs[state.mode]) user.hs[state.mode] = state.score;
+        app.saveData();
+        
+        els.hud.classList.add('hidden');
+        els.btnPause.classList.add('hidden');
+        els.vControls.classList.add('hidden');
+        els.gameOver.classList.remove('hidden');
+        
+        document.getElementById('go-title').innerText = state.score > 1000 ? "NEW RECORD!" : "GAME OVER";
+        document.getElementById('go-score').innerText = state.score;
+        document.getElementById('go-coins').innerText = state.coins;
+    },
+    updateHUD: function() {
+        const s = document.getElementById('hud-score');
+        const c = document.getElementById('hud-coins');
+        const l = document.getElementById('hud-level');
+        const li = document.getElementById('hud-lives');
+        if(s) s.innerText = state.score;
+        if(c) c.innerText = state.coins;
+        if(l) l.innerText = state.level;
+        if(li) li.innerText = "❤".repeat(state.lives);
+    },
+    toggleSwap: function() {
+        if(state.player.side === 'top') {
+            state.player.side = 'bottom';
+            state.player.y = 350; 
+        } else {
+            state.player.side = 'top';
+            state.player.y = 250;
+        }
+        AudioSys.swap();
+    }
+};
+
+// --- GAME LOOP ---
+function loop() {
+    if(!state.active) return;
+    if(!state.paused) {
+        update();
+        draw();
+        state.frame++;
+    }
+    requestAnimationFrame(loop);
+}
+
+function update() {
+    if(state.invulnerable>0) state.invulnerable--;
+    
+    // Coin Spawn (Generic)
+    if(state.frame%300===0 && state.mode !== 'gravity' && state.mode !== 'connect') { 
+        let cx=Math.random()*700+50, cy=Math.random()*500+50;
+        if(state.mode==='roast') cy=-20;
+        if(state.mode==='yinyang') { cx=820; cy = Math.random()>0.5 ? 250 : 350; }
+        if(state.mode==='beast') cy=-20;
+        state.entities.push({type:'coin',x:cx,y:cy,w:20,h:20});
+    }
+
+    for(let i=state.particles.length-1; i>=0; i--) {
+        let p=state.particles[i]; p.x+=p.vx; p.y+=p.vy; p.l--;
+        if(p.l<=0) state.particles.splice(i,1);
+    }
+
+    if(state.mode==='roast') updateRoast();
+    if(state.mode==='time') updateTime();
+    if(state.mode==='connect') updateConnect();
+    if(state.mode==='gravity') updateGravity();
+    if(state.mode==='yinyang') updateYinYang();
+    if(state.mode==='beast') updateBeast();
+    
+    // Generic Entity Cleanup/Update loop
+    for(let i=state.entities.length-1; i>=0; i--) {
+        let e=state.entities[i];
+        if(e.type==='coin') {
+            if(state.mode==='roast' || state.mode==='beast') e.y+=3;
+            else if(state.mode==='yinyang') e.x-=3;
+            
+            // Beast Mode Collection is touch based for coins
+            if(state.mode==='beast') {
+                 if(Math.hypot(state.player.x-e.x, state.player.y-e.y) < 30) {
+                     state.coins++; state.score+=50; AudioSys.coin(); app.saveData();
+                     state.entities.splice(i,1);
+                 }
+            }
+            else if(isCol(state.player, e, state.mode==='yinyang')) {
+                state.coins++; state.score+=50; AudioSys.coin(); app.saveData();
+                state.entities.splice(i,1);
+            } else if(e.y>600||e.x<-50) state.entities.splice(i,1);
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0,0,800,600);
+    ctx.fillStyle = '#fff';
+    for(let i=0;i<50;i++) ctx.fillRect((i*123+state.frame)%800, (i*87)%600, 2,2);
+
+    if(state.mode==='roast') drawRoast();
+    if(state.mode==='time') drawTime();
+    if(state.mode==='connect') drawConnect();
+    if(state.mode==='gravity') drawGravity();
+    if(state.mode==='yinyang') drawYY();
+    if(state.mode==='beast') drawBeast();
+    
+    state.entities.forEach(e => {
+        if(e.type==='coin' && state.mode !== 'connect') {
+            ctx.font = "20px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+            ctx.fillText("🪙", e.x, e.y);
+        }
+    });
+
+    state.particles.forEach(p => { ctx.fillStyle=p.c; ctx.fillRect(p.x,p.y,4,4); });
+}
+
+// --- GAME MODES ---
+function updateRoast() {
+    if(keys.left) state.player.x-=8; if(keys.right) state.player.x+=8;
+    if(state.frame%(60-state.level*2)===0) state.entities.push({type:Math.random()>0.3?'pepper':'water',x:Math.random()*760,y:-20,w:20,h:20});
+    state.entities.forEach((e,i)=>{
+        if(e.type!=='coin'){
+            e.y+= (4+state.level*0.5);
+            if(isCol(state.player,e)){
+                if(e.type==='pepper') { game.collect(10); AudioSys.catch(); } else game.hit();
+                state.entities.splice(i,1);
+            } else if(e.y>600) state.entities.splice(i,1);
+        }
+    });
+}
+function drawRoast() {
+    if(state.invulnerable%10<5) { 
+        ctx.font="40px serif"; ctx.fillText("😎", state.player.x, state.player.y);
+    }
+    ctx.font="24px serif";
+    state.entities.forEach(e=>{
+        if(e.type==='pepper') ctx.fillText("🌶", e.x, e.y);
+        if(e.type==='water') ctx.fillText("💧", e.x, e.y);
+    });
+}
+
+function updateTime() { state.player.angle += state.player.speed; }
+function drawTime() {
+    const cx=400,cy=300,r=150;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.strokeStyle='#333'; ctx.lineWidth=15; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,r,state.player.target.s,state.player.target.e); ctx.strokeStyle='#ffd700'; ctx.lineWidth=15; ctx.stroke();
+    const ax=cx+Math.cos(state.player.angle)*130, ay=cy+Math.sin(state.player.angle)*130;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(ax,ay); ctx.strokeStyle='#fff'; ctx.lineWidth=5; ctx.stroke();
+    ctx.fillStyle="#fff"; ctx.font="20px Fredoka"; ctx.fillText("TAP!", cx, cy+50);
+}
+
+// NEURAL LINK (CONNECT) LOGIC
+function updateConnect() {
+    const p = state.player;
+    if(keys.act) {
+        p.separation += (p.maxSep - p.separation) * 0.2;
+        if(!p.split) { p.split = true; AudioSys.split(); }
+    } else {
+        p.separation += (0 - p.separation) * 0.2;
+        p.split = false;
+    }
+
+    if(state.frame % (70 - Math.min(40, state.level*2)) === 0) {
+        const type = Math.random() > 0.5 ? 'center' : 'sides';
+        state.entities.push({ type: type, y: -50, w: 60, h: 20 });
+    }
+    if(state.frame % 100 === 0) {
+        state.entities.push({ type: 'data', y: -50, x: (Math.random()>0.5 ? 340 : 460) });
+    }
+
+    const speed = 5 + state.level;
+    for(let i=state.entities.length-1; i>=0; i--) {
+        let e = state.entities[i];
+        e.y += speed;
+        
+        if(e.y > 480 && e.y < 520) {
+            if(e.type === 'center') {
+                if(p.separation < 40) { game.hit(); state.entities.splice(i,1); }
+                else if(Math.abs(e.y - 500) < 5) game.collect(5);
+            }
+            else if(e.type === 'sides') {
+                if(p.separation > 20) { game.hit(); state.entities.splice(i,1); }
+                else if(Math.abs(e.y - 500) < 5) game.collect(5);
+            }
+            else if(e.type === 'data') {
+                 const leftX = 400 - p.separation;
+                 const rightX = 400 + p.separation;
+                 if(Math.abs(e.x - leftX) < 20 || Math.abs(e.x - rightX) < 20) {
+                     game.collect(20); AudioSys.coin(); state.entities.splice(i,1);
+                 }
+            }
+        }
+        
+        if(e.y > 650) state.entities.splice(i,1);
+    }
+}
+
+function drawConnect() {
+    const p = state.player;
+    ctx.lineWidth = 5; ctx.lineCap = 'round';
+    
+    ctx.strokeStyle = '#00ffcc';
+    ctx.beginPath(); ctx.moveTo(400, 600); 
+    ctx.quadraticCurveTo(400, 550, 400 - p.separation, 500); ctx.lineTo(400 - p.separation, 0); ctx.stroke();
+    
+    ctx.strokeStyle = '#ff0055';
+    ctx.beginPath(); ctx.moveTo(400, 600); 
+    ctx.quadraticCurveTo(400, 550, 400 + p.separation, 500); ctx.lineTo(400 + p.separation, 0); ctx.stroke();
+    
+    if(state.invulnerable%10<5) {
+        ctx.fillStyle='#fff';
+        ctx.beginPath(); ctx.arc(400 - p.separation, 500, 10, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(400 + p.separation, 500, 10, 0, 7); ctx.fill();
+    }
+
+    state.entities.forEach(e => {
+        if(e.type === 'center') {
+            ctx.fillStyle = '#fff'; ctx.fillRect(370, e.y, 60, 20);
+            ctx.fillStyle = '#f00'; ctx.fillText("⚠", 400, e.y+10);
+        } else if(e.type === 'sides') {
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, e.y, 360, 20); ctx.fillRect(440, e.y, 360, 20);
+        } else if(e.type === 'data') {
+            ctx.font="20px serif"; ctx.fillText("💠", e.x, e.y);
+        }
+    });
+}
+
+function updateGravity() {
+    const p = state.player;
+    
+    if(p.state === 'orbit') {
+        p.angle += p.speed * p.dir;
+        p.x = p.currentPlanet.x + Math.cos(p.angle) * p.dist;
+        p.y = p.currentPlanet.y + Math.sin(p.angle) * p.dist;
+    } else if (p.state === 'fly') {
+        p.x += p.vx;
+        p.y += p.vy;
+        
+        // Screen Bounds (Fail)
+        if(p.x < 0 || p.x > 800 || p.y < 0 || p.y > 600) {
+            game.hit();
+        }
+        
+        // Check Collision with Planets
+        state.planets.forEach(planet => {
+            if(planet !== p.lastPlanet) {
+                const dx = p.x - planet.x;
+                const dy = p.y - planet.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if(dist < planet.r + 30) { // Catch radius
+                    p.state = 'orbit';
+                    p.currentPlanet = planet;
+                    p.angle = Math.atan2(dy, dx);
+                    p.dist = dist; // Lock to this distance or animate to ideal
+                    p.dir = Math.random() > 0.5 ? 1 : -1; // Random direction
+                    AudioSys.blip();
+                    game.collect(20);
+                    
+                    // Scroll World if needed
+                    if(planet.y < 200) {
+                        const offset = 300 - planet.y;
+                        state.planets.forEach(pl => pl.y += offset);
+                        // Add new planet
+                        state.planets.push({
+                            x: Math.random()*600+100,
+                            y: -100, // Spawns above
+                            r: 20 + Math.random()*20,
+                            emoji: ['🪐','🌍','🌑','🌞'][Math.floor(Math.random()*4)],
+                            type: 'planet'
+                        });
+                        // Remove old
+                        if(state.planets.length > 5) state.planets.shift();
+                    }
+                }
+            }
+        });
+    }
+}
+function drawGravity() {
+    // Draw Orbits
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth=2;
+    state.planets.forEach(pl => {
+        ctx.beginPath(); ctx.arc(pl.x, pl.y, pl.r + 30, 0, Math.PI*2); ctx.stroke();
+        ctx.font = "40px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText(pl.emoji, pl.x, pl.y);
+    });
+    
+    // Draw Player
+    const p = state.player;
+    ctx.font = "30px serif";
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    if(p.state === 'fly') ctx.rotate(Math.atan2(p.vy, p.vx) + 1.57); // Rotate to face movement
+    else ctx.rotate(p.angle + (p.dir>0 ? 1.57 : -1.57)); // Rotate along tangent
+    ctx.fillText(p.emoji, 0, 0);
+    ctx.restore();
+}
+
+function updateYinYang() {
+    // Duality Dash Logic: Just move forward, tap to swap lanes (Top/Bottom)
+    if(state.frame%50===0) {
+        // Spawn Hazards
+        const isTop = Math.random() > 0.5;
+        state.entities.push({
+            type: isTop ? 'lightning' : 'fire',
+            x: 820,
+            y: isTop ? 250 : 350,
+            w: 30, h: 30
+        });
+    }
+    
+    state.entities.forEach((e,i)=>{
+        if(e.type==='lightning' || e.type==='fire') {
+            e.x -= (4 + state.level*0.5);
+            
+            // Collision
+            if(Math.abs(state.player.x - e.x) < 30 && Math.abs(state.player.y - e.y) < 30) {
+                game.hit();
+                state.entities.splice(i,1);
+            } else if(e.x < -50) {
+                state.entities.splice(i,1);
+                game.collect(10);
+            }
+        }
+    });
+}
+function drawYY() {
+    // Split Background
+    ctx.fillStyle = '#87CEEB'; // Sky Top
+    ctx.fillRect(0, 0, 800, 300);
+    ctx.fillStyle = '#2a0000'; // Hell Bottom
+    ctx.fillRect(0, 300, 800, 300);
+    
+    ctx.lineWidth = 4; ctx.strokeStyle='#fff'; ctx.beginPath(); ctx.moveTo(0,300); ctx.lineTo(800,300); ctx.stroke();
+
+    ctx.font="40px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    
+    // Player
+    const pEmoji = state.player.side === 'top' ? "👼" : "👿";
+    ctx.fillText(pEmoji, state.player.x, state.player.y);
+    
+    state.entities.forEach(e=>{
+        if(e.type==='lightning') ctx.fillText("⚡", e.x, e.y);
+        if(e.type==='fire') ctx.fillText("🔥", e.x, e.y);
+    });
+}
+
+function updateBeast() {
+    const p = state.player;
+    
+    // 50% Reduced Gravity Pull (400,300 is center)
+    const dx = 400 - p.x; const dy = 300 - p.y;
+    const dist = Math.hypot(dx, dy);
+    const force = 25 / (dist * dist + 100); // Weakened force
+    p.vx += dx * force * 0.5;
+    p.vy += dy * force * 0.5;
+    
+    // Movement Input (WASD/Arrows) - Free float
+    const speed = 0.5;
+    if(keys.left) p.vx -= speed; if(keys.right) p.vx += speed;
+    if(keys.up) p.vy -= speed; if(keys.down) p.vy += speed;
+    
+    // Friction
+    p.vx *= 0.95; p.vy *= 0.95;
+    
+    // Apply Move
+    p.x += p.vx; p.y += p.vy;
+    
+    // Bounds (Bounce)
+    if(p.x < 0 || p.x > 800) { p.vx *= -1; p.x = Math.max(0, Math.min(800, p.x)); }
+    if(p.y < 0 || p.y > 600) { p.vy *= -1; p.y = Math.max(0, Math.min(600, p.y)); }
+    
+    // Trail (Connect)
+    p.trail.push({x:p.x, y:p.y});
+    if(p.trail.length > 20) p.trail.shift();
+    
+    // Polarity Swap (Action)
+    if(keys.act && !p.swapping) { p.white = !p.white; p.swapping=true; AudioSys.swap(); }
+    if(!keys.act) p.swapping=false;
+
+    // --- HAZARDS ---
+    
+    // 1. Time Beam (Slower)
+    state.beastTime = (state.beastTime || 0) + 0.005; // Slower rotation
+    // Check collision with rotating line
+    // Line from 400,300 to radius 400
+    const bx = 400 + Math.cos(state.beastTime) * 400;
+    const by = 300 + Math.sin(state.beastTime) * 400;
+    
+    // Simple Point-to-Line distance
+    const distToBeam = Math.abs((by-300)*p.x - (bx-400)*p.y + bx*300 - by*400) / Math.hypot(by-300, bx-400);
+    
+    // Only hit if beam is somewhat active/visible and close
+    if(distToBeam < 15 && dist < 400) { game.hit(); }
+
+    // 2. Roast Fireballs (Slower Spawn)
+    if(state.frame % 120 === 0) state.entities.push({ type: 'fire', x: Math.random()*800, y: -50, vy: 3, w:20, h:20 }); // Slower spawn
+    
+    // 3. Spirits (YinYang) - Faster rewards (More Frequent)
+    if(state.frame % 40 === 0) {
+        state.entities.push({ 
+            type: 'spirit', 
+            x: Math.random()*800, 
+            y: Math.random() > 0.5 ? -50 : 650, 
+            vy: Math.random() > 0.5 ? 2 : -2, // Slower movement
+            white: Math.random() > 0.5
+        });
+    }
+
+    // Update Entities
+    for(let i=state.entities.length-1; i>=0; i--) {
+        let e = state.entities[i];
+        e.y += (e.vy || 0);
+        
+        // Hit Check
+        if(Math.hypot(p.x-e.x, p.y-e.y) < 30) {
+            if(e.type === 'fire') { game.hit(); state.entities.splice(i,1); }
+            else if(e.type === 'spirit') {
+                if(p.white === e.white) { game.collect(20); AudioSys.blip(); } else { game.hit(); }
+                state.entities.splice(i,1);
+            }
+        }
+        if(e.y > 650 || e.y < -100) state.entities.splice(i,1);
+    }
+}
+
+function drawBeast() {
+    const p = state.player;
+    
+    // Draw Time Beam
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+    ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.moveTo(400, 300);
+    ctx.lineTo(400 + Math.cos(state.beastTime)*600, 300 + Math.sin(state.beastTime)*600);
+    ctx.stroke();
+    
+    // Draw Black Hole
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(400, 300, 20, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth=1; ctx.stroke();
+    
+    // Draw Trail
+    ctx.strokeStyle = p.white ? '#0ff' : '#f05'; ctx.lineWidth=3;
+    ctx.beginPath(); p.trail.forEach(t=>ctx.lineTo(t.x, t.y)); ctx.stroke();
+    
+    // Draw Player
+    if(state.invulnerable%10<5) {
+        ctx.font="40px serif"; 
+        ctx.fillText(p.white ? "😇" : "👿", p.x, p.y);
+    }
+    
+    // Entities
+    state.entities.forEach(e => {
+        if(e.type==='fire') { ctx.font="30px serif"; ctx.fillText("🔥", e.x, e.y); }
+        if(e.type==='spirit') { ctx.font="30px serif"; ctx.fillText(e.white?"⚪":"⚫", e.x, e.y); }
+    });
+}
+
+// --- INPUT ---
+function handleAct() {
+    if(!state.active || state.paused) return;
+    if(state.mode==='time') {
+        let a=state.player.angle%(Math.PI*2); if(a<0) a+=Math.PI*2;
+        if(a>=state.player.target.s && a<=state.player.target.e) { game.collect(10); AudioSys.tap(); game.resetTime(); }
+        else game.hit();
+    }
+    if(state.mode==='gravity') { 
+        if(state.player.state === 'orbit') {
+            const p = state.player;
+            p.state = 'fly';
+            p.lastPlanet = p.currentPlanet;
+            // Tangent Velocity
+            const speed = 6;
+            // if dir is 1 (CW), tangent is -sin, cos. if -1 (CCW), sin, -cos
+            if(p.dir > 0) {
+                p.vx = -Math.sin(p.angle) * speed;
+                p.vy = Math.cos(p.angle) * speed;
+            } else {
+                p.vx = Math.sin(p.angle) * speed;
+                p.vy = -Math.cos(p.angle) * speed;
+            }
+            AudioSys.thrust();
+        }
+    }
+    if(state.mode==='yinyang') { game.toggleSwap(); }
+    if(state.mode==='connect') { state.player.split = true; }
+    // Beast mode handleAct handled in Update for hold/toggle logic split
+}
+
+window.onkeydown = e => {
+    if(e.code==='ArrowLeft') keys.left=true; if(e.code==='ArrowRight') keys.right=true;
+    if(e.code==='ArrowUp') keys.up=true; if(e.code==='ArrowDown') keys.down=true;
+    if(e.code==='Space' && !keys.act) { keys.act=true; handleAct(); }
+    if(e.code==='Escape') game.togglePause();
+};
+window.onkeyup = e => {
+    if(e.code==='ArrowLeft') keys.left=false; if(e.code==='ArrowRight') keys.right=false;
+    if(e.code==='ArrowUp') keys.up=false; if(e.code==='ArrowDown') keys.down=false;
+    if(e.code==='Space') keys.act=false;
+};
+const bindT = (id,k) => {
+    const b=document.getElementById(id);
+    b.ontouchstart=e=>{e.preventDefault();keys[k]=true;if(k==='act')handleAct()};
+    b.ontouchend=e=>{e.preventDefault();keys[k]=false};
+};
+bindT('btn-left','left'); bindT('btn-right','right'); bindT('btn-action','act');
+
+function isCol(p,e,circ=false) {
+    if(circ) return Math.hypot(p.x-e.x, p.y-e.y) < 35;
+    return !(e.x>p.x+(p.w||32)||e.x+e.w<p.x||e.y>p.y+(p.h||32)||e.y+e.h<p.y);
+}
+function createExplosion(x,y,c) { for(let i=0;i<10;i++) state.particles.push({x,y,vx:Math.random()*6-3,vy:Math.random()*6-3,l:20,c}); }
+
+const profile = {
+    open:()=>{els.profileModal.classList.remove('hidden'); profile.renderAvatars()},
+    save:()=>{
+        const n=document.getElementById('username-input').value;
+        if(n) user.name=n; app.saveData(); app.toMenu(); els.profileModal.classList.add('hidden');
+    },
+    renderAvatars:()=>{
+        [0,1,2,3].forEach(i=>{
+            const el = document.getElementById('av-'+i);
+            if(el) el.src=presets[i];
+        });
+        if(user.custom) { 
+            const c=document.getElementById('av-custom'); 
+            if(c) { c.src=user.custom; c.classList.remove('hidden'); }
+        }
+    },
+    selectAvatar:(i)=>{user.avatar=presets[i];},
+    selectCustom:()=>{if(user.custom)user.avatar=user.custom;},
+    handleUpload:(el)=>{
+        const f=el.files[0]; if(f){const r=new FileReader(); r.onload=e=>{user.custom=e.target.result; user.avatar=user.custom; profile.renderAvatars()}; r.readAsDataURL(f);}
+    },
+    update:()=>{
+        document.getElementById('profile-avatar-mini').src=user.avatar;
+        document.getElementById('p-name').innerText=user.name;
+        document.getElementById('p-title').innerText=user.title;
+        document.getElementById('p-coins').innerText=user.coins;
+        Object.keys(user.hs).forEach(k=>{
+            const el=document.getElementById('hs-'+k);
+            if(el) el.innerText=user.hs[k];
+        });
+    }
+}
+</script>
+</body>
+</html>
